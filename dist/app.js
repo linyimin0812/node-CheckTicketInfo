@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const express = require("express");
 const dotenv = require("dotenv");
+const MailMessage_1 = require("./MailMessage");
 const WechatMessage_1 = require("./WechatMessage");
 const CheckTicket_1 = require("./CheckTicket");
 const fs = require("fs");
@@ -97,7 +98,15 @@ app.get("/checkTrainTicket", function (req, res) {
         // 60秒查询一次
         setInterval(() => __awaiter(this, void 0, void 0, function* () {
             checkTicketInfo = yield CheckTicket_1.CheckTicket.checkTicket(checkTicketInfo);
-            CheckTicket_1.CheckTicket.sendTicketInfoMessage(checkTicketInfo);
+            let message = CheckTicket_1.CheckTicket.getTicketInfoMessage(checkTicketInfo);
+            if (message !== null) {
+                // 发送微信信息
+                WechatMessage_1.WechatMessage.sendMessage(message.wechatMessage);
+                // 发送邮箱信息
+                if (message.mailMessage["receiveMail"] !== "") {
+                    MailMessage_1.MailMessage.sendMessage(message.mailMessage);
+                }
+            }
         }), 5000);
     });
 });

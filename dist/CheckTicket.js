@@ -12,8 +12,6 @@ const https = require("https");
 const iconv = require("iconv-lite");
 const fs = require("fs");
 const nodehash = require("nodehash");
-const MailMessage_1 = require("./MailMessage");
-const WechatMessage_1 = require("./WechatMessage");
 const station = require("../station");
 /**
  * 查询余票信息，并发送相关信息
@@ -127,7 +125,7 @@ class CheckTicket {
      * 发送查询结果信息
      * @param checkTicketInfo
      */
-    static sendTicketInfoMessage(checkTicketInfo) {
+    static getTicketInfoMessage(checkTicketInfo) {
         // 如果两次查询的结果不一样且有票时给用户发送数据
         let isSend = checkTicketInfo.compare(checkTicketInfo.lastResult, checkTicketInfo.currentResult);
         // 发送消息
@@ -167,25 +165,25 @@ class CheckTicket {
             }
             content += `</table>`;
             let userName = checkTicketInfo.userName;
-            let userNamePinyin = nodehash.sha256FromStringSync(userName);
-            fs.writeFile(`./public/user/${userNamePinyin}-result.html`, content, (err) => {
+            let userNameHash = nodehash.sha256FromStringSync(userName);
+            fs.writeFile(`./public/user/${userNameHash}-result.html`, content, (err) => {
                 if (err) {
                     console.log("查询结果写入文件失败,无法发送微信信息");
                     console.log(err);
                 }
-                else {
-                    // 发送微信信息
-                    let sendContent = {};
-                    sendContent["userName"] = userName;
-                    sendContent["content"] = `${process.env.HOST}:${process.env.PORT}/user/${userNamePinyin}-result.html`;
-                    WechatMessage_1.WechatMessage.sendMessage(sendContent);
-                }
             });
+            // 构造微信信息
+            let wechatMessage = {};
+            wechatMessage["userName"] = userName;
+            wechatMessage["content"] = `${process.env.HOST}:${process.env.PORT}/user/${userNameHash}-result.html`;
             // 如果邮箱信息部位空就向邮件发送相关信息
-            if (checkTicketInfo.mail !== "") {
-                MailMessage_1.MailMessage.sendMessage({ "receiveMail": checkTicketInfo.mail, "content": content });
-            }
+            let mailMessage = {};
+            mailMessage["receiveMail"] = checkTicketInfo.mail;
+            mailMessage["content"] = content;
+            // 返回消息
+            return { "wechatMessage": wechatMessage, "mailMessage": mailMessage };
         }
+        return null;
     }
 }
 exports.CheckTicket = CheckTicket;

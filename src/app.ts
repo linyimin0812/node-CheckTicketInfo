@@ -99,7 +99,16 @@ app.get("/checkTrainTicket", async function(req : Request, res: Response){
     // 60秒查询一次
     setInterval(async () => {
         checkTicketInfo = await CheckTicket.checkTicket(checkTicketInfo);
-        CheckTicket.sendTicketInfoMessage(checkTicketInfo);
+        let message = CheckTicket.getTicketInfoMessage(checkTicketInfo);
+        if(message !== null){
+            // 发送微信信息
+            WechatMessage.sendMessage(message.wechatMessage);
+            // 发送邮箱信息
+            if(message.mailMessage["receiveMail"] !== ""){
+                MailMessage.sendMessage(message.mailMessage);
+            }
+        }
+       
     }, 5000);
 });
 

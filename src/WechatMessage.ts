@@ -57,35 +57,42 @@ bot.on("scan", function(url ,code){
           return false;
      }
 
+
+     /**
+      * 给自己发送消息
+      * @param contact 
+      * @param content 
+      */
+     public static async sendMessageToSelf(contact: Contact, content){
+        if(contact){
+            await contact.say(content);
+            console.log("发送微信消息成功");
+        }else{
+            console.log("该用户不存在, 无法发送微信消息");
+        }
+     }
      public static async handleMessage(userInfo){
          bot.on("message", async function(message){
              let content = message.content();
              // 获取发送信息的用户信息
              let contact: Contact = message.from();
              if(content === "查看余票信息"){
-                // 如果用户信息已经存在，直接查询
-                if(userInfo[contact.name()]){
-                    let name: string = contact.name();
-                    let mail: string = userInfo[name].mail;
-                    let date: string = userInfo[name].trainDate;
-                    let from: string = userInfo[name].from;
-                    let to: string = userInfo[name].to;
-                    CheckTicket.checkTicket(new CheckTicketInfo(name, mail, date, from, to));
-                }else{
-                    // 否则提示输入信息
-                    let data: string = `欢迎使用火车余票查询系统，请按照以下格式输入相关信息`;
-                    await contact.say(data);
-                    data = `例如您想乘坐1月15号从北京西到广州的火车，请输入"2018-01-15;beijingxi;guangzhou"`;
-                    await contact.say(data);
-                }
-             }
-             if(/.*;.*;.*/.test(content)){
+                // 提示输入信息
+                let data: string = `欢迎使用火车余票查询系统，请按照以下格式输入相关信息`;
+                await contact.say(data);
+                data = `如果您想查看1月15号从北京到广州的所有火车余票信息，请输入"2018-01-15;beijing;guangzhou"`;
+                await contact.say(data);
+                data = `如果您想查看1月15号从北京到广州的指定火车车次余票信息，请输入"2018-01-15;beijing;guangzhou;Z201"`;
+                await contact.say(data);
+             }else if(/.*;.*;.*/.test(content) && /如果*/.test(content) === false){
                 let name: string = contact.name();
                 let data: string[] = content.split(";");
                 let date: string = data[0];
                 let from: string = data[1];
                 let to: string = data[2];
+                let trainNo: string = data[3] || "";
                 let user = {};
+                user["trainNo"] = trainNo;
                 user["trainDate"] = date;
                 user["from"] = from;
                 user["to"] = to;
@@ -99,7 +106,42 @@ bot.on("scan", function(url ,code){
                 let checkTicketInfo: CheckTicketInfo = new CheckTicketInfo(name, "", date, from, to);
                 setInterval(async () => {
                     checkTicketInfo = await CheckTicket.checkTicket(checkTicketInfo);
-                    CheckTicket.sendTicketInfoMessage(checkTicketInfo);
+                    let message = CheckTicket.getTicketInfoMessage(checkTicketInfo);
+                    if(message === null){
+                        return;
+                    }
+                    // 发送指定车次信息
+                    if(trainNo !== ""){
+                        let len: number = checkTicketInfo.currentResult.length;
+                        for(let i =0 ; i < len; i++){
+                            if(trainNo === checkTicketInfo.currentResult[i].trainNo){
+                                let temp = checkTicketInfo.currentResult[i];
+                                checkTicketInfo.currentResult = [];
+                                checkTicketInfo.currentResult[0] = temp;
+                                break;
+                            }
+                        }
+                        len = checkTicketInfo.lastResult.length;
+                        for(let i = 0; i < len; i++){
+                            if(trainNo === checkTicketInfo.lastResult[i].trainNo){
+                                let temp = checkTicketInfo.lastResult[i];
+                                checkTicketInfo.lastResult = [];
+                                checkTicketInfo.lastResult[0] = temp;
+                                break;
+                            }
+                        }
+                        console.log(checkTicketInfo.currentResult.length);
+                        message = CheckTicket.getTicketInfoMessage(checkTicketInfo);
+                        if(message === null){
+                            return;
+                        }
+                    }
+                    if(contact.self()){
+                        WechatMessage.sendMessageToSelf(contact, message.wechatMessage["content"]);
+                    }else{
+                        WechatMessage.sendMessage(message.wechatMessage);
+                    }
+                    
                 }, 5000);
              }
          });
